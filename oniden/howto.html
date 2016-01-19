@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Oniden</title>
+    <link rel="stylesheet" type="text/css" href="/css/sanitize.css" />
+    <link rel="stylesheet" type="text/css" href="/css/app.css" />
+    <script src="/js/libs/jquery-1.10.2.min.js"></script>
+
+<script type="text/javascript" src="/js/libs/shCore.js"></script>
+<script type="text/javascript" src="/js/libs/shBrushBash.js"></script>
+<script type="text/javascript" src="/js/libs/shBrushPhp.js"></script>
+<link type="text/css" rel="stylesheet" href="/css/js_styles/shCore.css">
+<link type="text/css" rel="stylesheet" href="/css/js_styles/shThemeDefault.css">
+<script type="text/javascript">
+SyntaxHighlighter.all();
+SyntaxHighlighter.defaults['toolbar'] = false;
+</script>
+
+  </head>
+
+  <body>
+
+  <div class="header page">
+    <div class="inner">
+      <div class="head">
+        <h2><a href="/"><img src="/img/logo.png" alt="ONIDEN"></a></h2>
+      </div>
+      <div class="menu">
+        <ul>
+          <li class="service"><a href="/service.html"><span class="ja">機能説明</span><span class="en">SERVICE</span></a></li>
+          <li class="price"><a href="/price.html"><span class="ja">価格</span><span class="en">PRICE</span></a></li>
+          <li class="guide"><a href="/guide.html"><span class="ja">登録方法</span><span class="en">GUIDE</span></a></li>
+          <li class="howto"><a href="/howto.html"><span class="ja">利用方法</span><span class="en">HOW TO</span></a></li>
+          <li class="entry"><a href="/entry.html"><span class="ja">お申し込み</span><span class="en">ENTRY</span></a></li>
+          <li class="contact"><a href="/contact.html"><span class="ja">お問い合せ</span><span class="en">CONTACT</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+<div class="content">
+
+    <div class="page_howto section">
+        <div class="page_title">
+            <h2><small>How to use</small>利用方法</h2>
+        </div>
+            <div class="howto_nav">
+                <ul>
+                    <li>利用方法一覧</li>
+                    <li><a href="#nagios">nagiosとの連携方法</a></li>
+                    <li><a href="#zabbix">zabbixとの連携方法</a></li>
+                    <li><a href="#slack">slackとの連携方法</a></li>
+                </ul>
+        <div class="section-body">
+<!--            <div class="section-main"> -->
+                <div id="nagios" class="section" >
+                    <h3>nagiosとの連携方法</h3>
+                    <div class="feature">
+                        <div class="icon">
+                            <img src="img/howto_nagios.png" alt="" />
+                        </div>
+                    </div>
+<!--                    <div class="explain"> -->
+			<br/>
+			<div id="container">
+                        <p><B>1.架電スクリプトを作成</B></p>
+				<pre class="brush:bash;">
+				# vi /usr/lib64/nagios/plugins/oniden.sh
+				====================
+				    #!/bin/sh
+			
+				    APIKEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+			
+				    GETCONT=`curl -sX GET 
+				"https://oniden.jp/api/v1/call_api_key/${APIKEY}"`
+				    RESULT=`echo $GETCONT | jq -r '.result'`
+				    KEY=`echo $GETCONT | jq -r '.call_api_key'`
+			
+				    if [ "$RESULT" != "OK" ] ; then
+				      exit 1  
+				    fi
+			
+				   curl -sX POST -H 'Content-Type: application/json' \
+				      -d "{\"call_api_key\":\"${KEY}\"}" \
+				      https://oniden.jp/api/v1/call >/dev/null
+				====================
+				# chmod 755 /usr/lib64/nagios/plugins/oniden.sh
+				```
+				</pre><br/>
+                        <p><B>2.nagiosのコマンドとして登録</B></p>
+				<p>　1)conf.d配下の設定を読み込むようコメントイン</p>
+				<pre class="brush:bash;">
+				# vi /etc/nagios/nagios.cfg
+				====================
+				- #cfg_dir=/etc/nagios/conf.d
+				+ cfg_dir=/etc/nagios/conf.d 
+				====================
+				</pre><br/>
+				<p>　2)コンタクト設定の追加</p>
+				<pre class="brush:bash;">
+				# vi /etc/nagios/conf.d/oniden.cfg
+				====================
+				define contact {
+				      contact_name                             oniden
+				      alias  　                                 oniden
+				      service_notification_period              24x7
+				      host_notification_period                 24x7
+				      service_notification_options             w,u,c,r
+				      host_notification_options                d,r
+				      service_notification_commands            notify-service-for-oniden
+				      host_notification_commands               notify-host-for-oniden
+				}
+
+				define command {
+				      command_name     notify-service-for-oniden
+				      command_line     /usr/lib64/nagios/plugins/oniden.sh
+				}
+				
+				define command {
+				      command_name     notify-host-for-oniden
+				      command_line     /usr/lib64/nagios/plugins/oniden.sh
+				}
+				====================
+				</pre><br/>
+                        <p><B>3.contactgroupにonidenを追加して反映</B></p>
+				<pre class="brush:bash;">
+				# vi /etc/nagios/objects/contacts.cfg
+				====================
+				define contactgroup{
+				         contactgroup_name       admins
+				         alias　　　　　　　　　 Nagios Administrators
+				-        members                 nagiosadmin
+				+        members                 nagiosadmin,slack
+				        }
+				====================
+				</pre><br/>
+			</div>
+                </div>
+                <div id="zabbix" class="section">
+                    <h3>ZABBIXとの連携方法</h3>
+                    <div class="feature">
+                        <div class="icon">
+                            <img src="img/howto_zabbix.png" alt="" />
+                        </div>
+                    </div>
+<!--                    <div class="explain"> -->
+			<br/>
+			<div id="container">
+                        <p><B>1.架電スクリプトを作成</B></p>
+				<pre class="brush:bash;">
+				# vi /usr/lib/zabbix/alertscripts/oniden.sh
+				====================
+				    #!/bin/sh
+				
+				    APIKEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+				
+				    GETCONT=`curl -sX GET "https://oniden.jp/api/v1/call_api_key/${APIKEY}"`
+				    RESULT=`echo $GETCONT | jq -r '.result'`
+				    KEY=`echo $GETCONT | jq -r '.call_api_key'`
+				
+				    if [ "$RESULT" != "OK" ] ; then
+				      exit 1  
+				    fi
+
+				    curl -sX POST -H 'Content-Type: application/json' \
+				      -d "{\"call_api_key\":\"${KEY}\"}" \
+				      https://oniden.jp/api/v1/call >/dev/null
+				====================
+				# chmod 755 /usr/lib/zabbix/alertscripts/oniden.sh
+				```
+				</pre><br/>
+                        <p><B>2.ZABBIXの通知設定として登録</B></p>
+			<div class="photo">
+                            <img src="img/zabbix1.png" alt="" />
+			</div><br/>
+                        <p><B>3.ユーザ追加</B></p>
+			<div class="photo">
+			</div><br/>
+			</div>
+                </div>
+                </div>
+                <div id="slack" class="section">
+                    <h3>slackとの連携方法</h3>
+                    <div class="feature">
+                        <div class="icon">
+                            <img src="img/howto_slack.png" alt="" />
+                        </div>
+                    </div>
+<!--                    <div class="explain"> -->
+			<br/>
+			<div id="container">
+                        <p><B>1.外部からアクセス出来るWEBへプログラム設置(PHPでの例)</B></p>
+				<pre class="brush:php;">
+				<?php
+				   $API_KEY = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+				   $url = "https://oniden.jp/api/v1/call_api_key/" . $API_KEY ;
+				   $json = file_get_contents($url);
+				   $obj = json_decode($json);
+				   $result = $obj->{'result'};
+				   $call_api_key = $obj->{'call_api_key’};
+				   
+				   if($result == "OK"){
+				       die(1);
+				   }
+				   
+				   $result_url = 'https://oniden.jp/api/v1/call';
+				   $json_data = array("call_api_key"=>$call_api_key);
+				   
+				   $options = array(
+				   'http' => array(
+				   'method'  => 'POST',
+				   'header' => 'Content-type: application/json',
+				   'content' => json_encode( $json_data )
+				       )
+				  );
+				
+				   $context  = stream_context_create( $options );
+				   $result = file_get_contents( $result_url, false, $context );
+				?>
+				</pre><br/>
+                        <p><B>2.slackのIntegrationsから「Outgoing WebHooks」を追加</B></p>
+			<div class="photo">
+                            <img src="img/slack1.png" alt="" />
+			</div><br/>
+                        <p><B>3.slackのIntegrationsから「Outgoing WebHooks」を追加</B></p>
+			<div class="explain">
+				<p>のちほどスクリーンショット画像追加</p>
+			</div><br/>
+				<p>Channel: 監視対象のチャンネル<br/>
+				   Trigger Word(s): プログラムをキックする言葉<br/>
+				   URL(s): 設置したプログラムのURL</p><br/>
+       	        </div>
+                <div id="self" class="section">
+                    <h3>独自プログラムを書く場合</h3>
+                    <div class="explain">
+                        <p>連携説明</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+  <div class="top_link">
+    <div class="inner">
+      <a href="#top">▲ ページトップ</a>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="inner">
+      <img src="/img/oniden.png" alt="鬼電">
+      <div class="body">
+        <h3>株式会社ディレクターズ</h3>
+        <p>〒150-0002<br>
+          東京都渋谷区渋谷3-27-11 祐真ビル新館10F<br>
+          TEL.03-0000-0000 / FAX.03-0000-0000</p>
+      </div>
+    </div>
+  </div>
+  <div class="copy">
+    <div class="inner">
+      <address>&copy;2015 Directorz Co.,Ltd. All rights reserved.</address>
+      <ul>
+        <li><a href="/entry.html">お申し込み</a></li>
+        <li><a href="/terms.html">利用規約</a></li>
+        <li><a href="/corporate.html">運営会社</a></li>
+      </ul>
+    </div>
+  </div>
+
+<script>
+SyntaxHighlighter.autoloader
+(
+"bash shell             ../scripts/shBrushBash.js",
+);
+SyntaxHighlighter.all();
+</script>
+</body>
+</html>
+  </body>
+
+</html>
+
